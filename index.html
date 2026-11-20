@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3a5f">
+<title>Inventaire matières premières</title>
+<style>
+  :root {
+    --bg: #f3f5f8; --card: #fff; --ink: #1b2430; --muted: #6a7686;
+    --brand: #1f3a5f; --ok: #1e8e5a; --warn: #c27a00; --bad: #c0392b; --line: #dde3ea;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--ink); padding-bottom: 90px; }
+  header { background: var(--brand); color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 5; }
+  header h1 { margin: 0; font-size: 1.15rem; }
+  header small { opacity: .8; }
+  main { max-width: 560px; margin: 0 auto; padding: 12px; }
+  .card { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card h2 { margin: 0 0 10px; font-size: 1rem; }
+  label { display: block; font-size: .85rem; color: var(--muted); margin: 10px 0 4px; }
+  select, input[type=number] { width: 100%; font-size: 1.15rem; padding: 12px; border: 1px solid var(--line);
+          border-radius: 10px; background: #fff; color: var(--ink); }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  button { font-size: 1rem; padding: 13px 14px; border: 0; border-radius: 10px; cursor: pointer;
+           background: var(--brand); color: #fff; font-weight: 600; }
+  button.sec { background: #e8edf3; color: var(--brand); }
+  button.danger { background: #fdecea; color: var(--bad); }
+  button:active { transform: scale(.98); }
+  .add { width: 100%; margin-top: 14px; font-size: 1.1rem; padding: 15px; background: var(--ok); }
+  .err { color: var(--bad); font-size: .9rem; margin-top: 8px; min-height: 1.1em; }
+  .dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid #0003;
+         vertical-align: -3px; margin-right: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { padding: 8px 4px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { font-size: .78rem; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  tfoot td { font-weight: 700; border-bottom: 0; border-top: 2px solid var(--ink); }
+  .item { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: 0; }
+  .item .main { flex: 1; min-width: 0; }
+  .item .kg { font-weight: 700; font-size: 1.05rem; }
+  .bar { height: 5px; background: #e6ebf1; border-radius: 3px; margin-top: 5px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--ok); }
+  .item button { padding: 8px 10px; font-size: .85rem; }
+  .empty { color: var(--muted); text-align: center; padding: 14px 0; }
+  .bottom { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid var(--line);
+            padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); display: flex; gap: 8px; z-index: 6; }
+  .bottom button { flex: 1; }
+  #toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #1b2430;
+           color: #fff; padding: 10px 16px; border-radius: 20px; font-size: .9rem; opacity: 0;
+           transition: opacity .25s; pointer-events: none; z-index: 10; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Inventaire matières premières</h1>
+  <small>Octabines — max. 1250 kg</small>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Ajouter une octabine</h2>
+    <label for="couleur">Couleur</label>
+    <select id="couleur"></select>
+
+    <label for="qte">Quantité (kg)</label>
+    <div class="row">
+      <input id="qte" type="number" inputmode="decimal" min="0" max="1250" step="any" placeholder="ex. 850">
+      <button class="sec" id="pleine" type="button" style="flex:0 0 auto">Pleine 1250</button>
+    </div>
+    <div class="err" id="err"></div>
+    <button class="add" id="ajouter" type="button">+ Ajouter</button>
+  </section>
+
+  <section class="card">
+    <h2>Totaux par couleur</h2>
+    <table>
+      <thead><tr><th>Couleur</th><th class="n">Octab.</th><th class="n">Total kg</th></tr></thead>
+      <tbody id="totaux"></tbody>
+      <tfoot><tr><td>Total</td><td class="n" id="totN">0</td><td class="n" id="totKg">0</td></tr></tfoot>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Octabines saisies (<span id="count">0</span>)</h2>
+    <div id="liste"></div>
+  </section>
+</main>
+
+<div class="bottom">
+  <button class="danger" id="vider" type="button">Tout effacer</button>
+  <button id="export" type="button">Exporter Excel (CSV)</button>
+</div>
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+  var MAX = 1250;
+  var STORAGE_KEY = "inventaire_octabines_v1";
+  var COULEURS = [
+    { nom: "Moka",       hex: "#7b5a43" },
+    { nom: "Blanc",      hex: "#ffffff" },
+    { nom: "Sable",      hex: "#d8c49a" },
+    { nom: "Bleu azur",  hex: "#2e9bd6" },
+    { nom: "Gris",       hex: "#9097a0" },
+    { nom: "Transparent",hex: "#e8f4f8" },
+    { nom: "Noir",       hex: "#1a1a1a" }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var data = [];
+
+  function load() {
+    try { data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch (e) { data = []; }
+  }
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    catch (e) { toast("Sauvegarde impossible sur ce navigateur"); }
+  }
+  function hexOf(nom) {
+    for (var i = 0; i < COULEURS.length; i++) if (COULEURS[i].nom === nom) return COULEURS[i].hex;
+    return "#ccc";
+  }
+  function fmt(n) {
+    return (Math.round(n * 100) / 100).toLocaleString("fr-BE", { maximumFractionDigits: 2 });
+  }
+  function toast(msg) {
+    var t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove("show"); }, 2200);
+  }
+  function parseQte(v) {
+    if (typeof v === "string") v = v.replace(",", ".").trim();
+    if (v === "" || v === null) return NaN;
+    return Number(v);
+  }
+  function validate(q) {
+    if (isNaN(q)) return "Entrez une quantité.";
+    if (q < 0) return "La quantité ne peut pas être négative.";
+    if (q > MAX) return "Maximum " + MAX + " kg par octabine.";
+    return "";
+  }
+
+  function render() {
+    // totaux
+    var tb = $("totaux"), html = "", totN = 0, totKg = 0;
+    COULEURS.forEach(function (c) {
+      var n = 0, kg = 0;
+      data.forEach(function (d) { if (d.couleur === c.nom) { n++; kg += d.qte; } });
+      totN += n; totKg += kg;
+      html += '<tr><td><span class="dot" style="background:' + c.hex + '"></span>' + c.nom +
+              '</td><td class="n">' + n + '</td><td class="n">' + fmt(kg) + '</td></tr>';
+    });
+    tb.innerHTML = html;
+    $("totN").textContent = totN;
+    $("totKg").textContent = fmt(totKg);
+
+    // liste (plus récent en premier)
+    $("count").textContent = data.length;
+    var l = $("liste");
+    if (!data.length) { l.innerHTML = '<div class="empty">Aucune octabine saisie.</div>'; return; }
+    l.innerHTML = "";
+    for (var i = data.length - 1; i >= 0; i--) {
+      (function (idx) {
+        var d = data[idx];
+        var pct = Math.min(100, Math.round(d.qte / MAX * 100));
+        var el = document.createElement("div");
+        el.className = "item";
+        el.innerHTML =
+          '<div class="main"><div><span class="dot" style="background:' + hexOf(d.couleur) + '"></span>' +
+          '#' + (idx + 1) + ' · ' + d.couleur + ' — <span class="kg">' + fmt(d.qte) + ' kg</span></div>' +
+          '<div class="bar"><i style="width:' + pct + '%"></i></div></div>' +
+          '<button class="sec" data-a="e">Modif.</button><button class="danger" data-a="s">✕</button>';
+        el.querySelector('[data-a="e"]').onclick = function () { editer(idx); };
+        el.querySelector('[data-a="s"]').onclick = function () { supprimer(idx); };
+        l.appendChild(el);
+      })(i);
+    }
+  }
+
+  function ajouter() {
+    var q = parseQte($("qte").value);
+    var e = validate(q);
+    $("err").textContent = e;
+    if (e) return;
+    data.push({ couleur: $("couleur").value, qte: q });
+    save(); render();
+    $("qte").value = ""; $("qte").focus();
+    toast("Ajouté : " + $("couleur").value + " " + fmt(q) + " kg");
+  }
+  function editer(idx) {
+    var r = prompt("Nouvelle quantité (kg) pour l'octabine #" + (idx + 1) + " (" + data[idx].couleur + ") :", data[idx].qte);
+    if (r === null) return;
+    var q = parseQte(r), e = validate(q);
+    if (e) { alert(e); return; }
+    data[idx].qte = q; save(); render();
+  }
+  function supprimer(idx) {
+    if (!confirm("Supprimer l'octabine #" + (idx + 1) + " (" + data[idx].couleur + ", " + fmt(data[idx].qte) + " kg) ?")) return;
+    data.splice(idx, 1); save(); render();
+  }
+  function toutEffacer() {
+    if (!data.length) return;
+    if (!confirm("Effacer TOUT l'inventaire (" + data.length + " octabines) ? Exportez d'abord si nécessaire.")) return;
+    data = []; save(); render();
+  }
+
+  // Export CSV : séparateur ";" et virgule décimale => s'ouvre directement bien rangé dans Excel (réglages FR/BE).
+  // BOM UTF-8 pour que les accents soient corrects.
+  function exportCsv() {
+    if (!data.length) { toast("Rien à exporter"); return; }
+    var num = function (n) { return String(Math.round(n * 100) / 100).replace(".", ","); };
+    var lines = [["N°", "Couleur", "Quantité (kg)", "Remplissage (%)"].join(";")];
+    data.forEach(function (d, i) {
+      lines.push([i + 1, d.couleur, num(d.qte), num(d.qte / MAX * 100)].join(";"));
+    });
+    lines.push("");
+    lines.push(["Couleur", "Nombre d'octabines", "Total (kg)"].join(";"));
+    var totN = 0, totKg = 0;
+    COULEURS.forEach(function (c) {
+      var n = 0, kg = 0;
+      data.forEach(function (d) { if (d.couleur === c.nom) { n++; kg += d.qte; } });
+      totN += n; totKg += kg;
+      lines.push([c.nom, n, num(kg)].join(";"));
+    });
+    lines.push(["TOTAL", totN, num(totKg)].join(";"));
+
+    var blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var now = new Date();
+    var p = function (x) { return String(x).padStart(2, "0"); };
+    var name = "inventaire_" + now.getFullYear() + "-" + p(now.getMonth() + 1) + "-" + p(now.getDate()) +
+               "_" + p(now.getHours()) + "h" + p(now.getMinutes()) + ".csv";
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast("Fichier exporté : " + name);
+  }
+
+  // init
+  var sel = $("couleur");
+  COULEURS.forEach(function (c) {
+    var o = document.createElement("option"); o.value = c.nom; o.textContent = c.nom; sel.appendChild(o);
+  });
+  // se souvenir de la dernière couleur choisie
+  try { var lc = localStorage.getItem(STORAGE_KEY + "_lastColor"); if (lc) sel.value = lc; } catch (e) {}
+  sel.addEventListener("change", function () {
+    try { localStorage.setItem(STORAGE_KEY + "_lastColor", sel.value); } catch (e) {}
+  });
+
+  $("ajouter").onclick = ajouter;
+  $("pleine").onclick = function () { $("qte").value = MAX; $("err").textContent = ""; };
+  $("qte").addEventListener("keydown", function (e) { if (e.key === "Enter") ajouter(); });
+  $("qte").addEventListener("input", function () { $("err").textContent = ""; });
+  $("vider").onclick = toutEffacer;
+  $("export").onclick = exportCsv;
+
+  load(); render();
+})();
+</script>
+</body>
+</html>
