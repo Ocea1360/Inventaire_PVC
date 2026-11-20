@@ -31,6 +31,8 @@
   button.danger { background: #fdecea; color: var(--bad); }
   button:active { transform: scale(.98); }
   .add { width: 100%; margin-top: 14px; font-size: 1.1rem; padding: 15px; background: var(--ok); }
+  .codes { background: #eef3f9; border-radius: 10px; padding: 8px 12px; margin-top: 8px; font-size: .9rem; line-height: 1.5; }
+  .sub { display: block; font-size: .72rem; color: var(--muted); margin-left: 24px; }
   .err { color: var(--bad); font-size: .9rem; margin-top: 8px; min-height: 1.1em; }
   .dot { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid #0003;
          vertical-align: -3px; margin-right: 8px; }
@@ -67,6 +69,7 @@
     <h2>Ajouter une octabine</h2>
     <label for="couleur">Couleur</label>
     <select id="couleur"></select>
+    <div class="codes" id="codes"></div>
 
     <label for="qte">Quantité (kg)</label>
     <div class="row">
@@ -104,14 +107,21 @@
   var MAX = 1250;
   var STORAGE_KEY = "inventaire_octabines_v1";
   var COULEURS = [
-    { nom: "Moka",       hex: "#7b5a43" },
-    { nom: "Blanc",      hex: "#ffffff" },
-    { nom: "Sable",      hex: "#d8c49a" },
-    { nom: "Bleu azur",  hex: "#2e9bd6" },
-    { nom: "Gris",       hex: "#9097a0" },
-    { nom: "Transparent",hex: "#e8f4f8" },
-    { nom: "Noir",       hex: "#1a1a1a" }
+    { nom: "Moka",        hex: "#7b5a43", fourn: "ER452/1543/AA",  interne: "00-PVC-MOKA" },
+    { nom: "Blanc",       hex: "#ffffff", fourn: "ER482/1097/AA",  interne: "00-PVC-BLANC" },
+    { nom: "Sable",       hex: "#d8c49a", fourn: "ER180C071AC",    interne: "00-PVC-SABLE-2" },
+    { nom: "Bleu azur",   hex: "#2e9bd6", fourn: "ER161B024AC",    interne: "00-PVC-BLEUAZUR-2" },
+    { nom: "Gris",        hex: "#9097a0", fourn: "ER452/9560/AC",  interne: "00-PVC-GRIS" },
+    { nom: "Transparent", hex: "#e8f4f8", fourn: "EH611/7095",     interne: "00-PVC-TR.BLEU" },
+    { nom: "Noir",        hex: "#1a1a1a", fourn: "ER198/0900/AC",  interne: "00-PVC-NOIR" }
   ];
+  function couleurObj(nom) {
+    for (var i = 0; i < COULEURS.length; i++) if (COULEURS[i].nom === nom) return COULEURS[i];
+    return { nom: nom, hex: "#ccc", fourn: "", interne: "" };
+  }
+  function codesTxt(c) {
+    return (c.fourn || "code fournisseur non renseigné") + " · " + (c.interne || "code interne non renseigné");
+  }
 
   var $ = function (id) { return document.getElementById(id); };
   var data = [];
@@ -154,6 +164,7 @@
       data.forEach(function (d) { if (d.couleur === c.nom) { n++; kg += d.qte; } });
       totN += n; totKg += kg;
       html += '<tr><td><span class="dot" style="background:' + c.hex + '"></span>' + c.nom +
+              (c.interne ? '<span class="sub">' + c.interne + '</span>' : '') +
               '</td><td class="n">' + n + '</td><td class="n">' + fmt(kg) + '</td></tr>';
     });
     tb.innerHTML = html;
@@ -174,6 +185,7 @@
         el.innerHTML =
           '<div class="main"><div><span class="dot" style="background:' + hexOf(d.couleur) + '"></span>' +
           '#' + (idx + 1) + ' · ' + d.couleur + ' — <span class="kg">' + fmt(d.qte) + ' kg</span></div>' +
+          '<div class="sub" style="margin-left:24px">' + codesTxt(couleurObj(d.couleur)) + '</div>' +
           '<div class="bar"><i style="width:' + pct + '%"></i></div></div>' +
           '<button class="sec" data-a="e">Modif.</button><button class="danger" data-a="s">✕</button>';
         el.querySelector('[data-a="e"]').onclick = function () { editer(idx); };
@@ -215,20 +227,21 @@
   function exportCsv() {
     if (!data.length) { toast("Rien à exporter"); return; }
     var num = function (n) { return String(Math.round(n * 100) / 100).replace(".", ","); };
-    var lines = [["N°", "Couleur", "Quantité (kg)", "Remplissage (%)"].join(";")];
+    var lines = [["N°", "Couleur", "Code fournisseur", "Code interne", "Quantité (kg)", "Remplissage (%)"].join(";")];
     data.forEach(function (d, i) {
-      lines.push([i + 1, d.couleur, num(d.qte), num(d.qte / MAX * 100)].join(";"));
+      var c = couleurObj(d.couleur);
+      lines.push([i + 1, d.couleur, c.fourn, c.interne, num(d.qte), num(d.qte / MAX * 100)].join(";"));
     });
     lines.push("");
-    lines.push(["Couleur", "Nombre d'octabines", "Total (kg)"].join(";"));
+    lines.push(["Couleur", "Code fournisseur", "Code interne", "Nombre d'octabines", "Total (kg)"].join(";"));
     var totN = 0, totKg = 0;
     COULEURS.forEach(function (c) {
       var n = 0, kg = 0;
       data.forEach(function (d) { if (d.couleur === c.nom) { n++; kg += d.qte; } });
       totN += n; totKg += kg;
-      lines.push([c.nom, n, num(kg)].join(";"));
+      lines.push([c.nom, c.fourn, c.interne, n, num(kg)].join(";"));
     });
-    lines.push(["TOTAL", totN, num(totKg)].join(";"));
+    lines.push(["TOTAL", "", "", totN, num(totKg)].join(";"));
 
     var blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     var now = new Date();
@@ -245,11 +258,19 @@
   // init
   var sel = $("couleur");
   COULEURS.forEach(function (c) {
-    var o = document.createElement("option"); o.value = c.nom; o.textContent = c.nom; sel.appendChild(o);
+    var o = document.createElement("option"); o.value = c.nom;
+    o.textContent = c.nom + (c.fourn ? "  —  " + c.fourn : "");
+    sel.appendChild(o);
   });
+  function majCodes() {
+    var c = couleurObj(sel.value);
+    $("codes").innerHTML = '<b>Code interne :</b> ' + (c.interne || "<i>non renseigné</i>");
+  }
   // se souvenir de la dernière couleur choisie
   try { var lc = localStorage.getItem(STORAGE_KEY + "_lastColor"); if (lc) sel.value = lc; } catch (e) {}
+  majCodes();
   sel.addEventListener("change", function () {
+    majCodes();
     try { localStorage.setItem(STORAGE_KEY + "_lastColor", sel.value); } catch (e) {}
   });
 
